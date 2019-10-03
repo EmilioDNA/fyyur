@@ -81,7 +81,7 @@ class Show(db.Model):
   __tablename__ = 'Show'
 
   id = db.Column(db.Integer, primary_key=True)
-  start_time = db.Column(db.String(120))
+  start_time = db.Column(db.DateTime())
   # Foreign keys
   venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'))
   artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'))
@@ -96,7 +96,7 @@ class Show(db.Model):
       'artist_id': self.artist_id,
       'artist_name' : artist.name,
       'artist_image_link' : artist.image_link,
-      'start_time': self.start_time}
+      'start_time': convert_datetime_string(self.start_time)}
   
   @property
   def display_show_venue(self):
@@ -105,7 +105,7 @@ class Show(db.Model):
       'artist_id': self.artist_id,
       'artist_name' : artist.name,
       'artist_image_link' : artist.image_link,
-      'start_time': self.start_time}
+      'start_time': convert_datetime_string(self.start_time)}
 
   @property
   def display_show_artist(self):
@@ -114,7 +114,7 @@ class Show(db.Model):
       'venue_id': self.venue_id,
       'venue_name' : venue.name,
       'venue_image_link' : venue.image_link,
-      'start_time': self.start_time}
+      'start_time':  convert_datetime_string(self.start_time)}
     
 
 
@@ -125,6 +125,14 @@ class Show(db.Model):
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
+
+
+def convert_string_datetime(datetime_str):
+  return datetime.datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+
+def convert_datetime_string(datetime):
+  return datetime.strftime( "%Y-%m-%d %H:%M:%S")
+  
 
 def format_datetime(value, format='medium'):
   date = dateutil.parser.parse(value)
@@ -157,12 +165,12 @@ def venues():
                 state=unique.state, 
                 venues=[dict(id=v.id, 
                               name=v.name, 
-                              num_upcoming_shows=Show.query.filter(Show.venue_id == v.id).count()
+                              num_upcoming_shows=Show.query.filter(Show.start_time > datetime.datetime.now(),
+                                                                  Show.venue_id == v.id).count()
                               ) for v in Venue.query.filter(Venue.city == unique.city, 
                                           Venue.state == unique.state).all()]
                                           ) for unique in uniquecitiesanstate]
   
- 
   return render_template('pages/venues.html', areas=data)
 
 
@@ -537,7 +545,7 @@ def shows():
   #       num_shows should be aggregated based on number of upcoming shows per venue.
   shows = Show.query.all()
   data = [show.display_show for show in shows]
-
+  print(datetime.datetime.now())
   return render_template('pages/shows.html', shows=data)
 
 
