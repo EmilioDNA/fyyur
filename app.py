@@ -39,20 +39,18 @@ class Venue(db.Model):
     __tablename__ = 'Venue'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
-    # additional fields
-    website = db.Column(db.String(120))
-    seeking_talent = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String(200))
-    # relationships
-    shows = db.relationship('Show', backref='venues', lazy=True)
+    name = db.Column(db.String, nullable=False)
+    city = db.Column(db.String(120), nullable=False)
+    state = db.Column(db.String(120), nullable=False)
+    address = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(120), nullable=False)
+    image_link = db.Column(db.String(500), nullable=False)
+    facebook_link = db.Column(db.String(120), nullable=False)
+    genres = db.Column(db.String(120), nullable=False)
+    website = db.Column(db.String(120), nullable=False)
+    seeking_talent = db.Column(db.Boolean, nullable=False, default=False)
+    seeking_description = db.Column(db.String(200), nullable=False)
+    shows = db.relationship('Show', backref='venues', lazy=True, cascade='all, delete-orphan')
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
 
@@ -62,29 +60,26 @@ class Artist(db.Model):
     __tablename__ = 'Artist'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
-    # additional fields
-    seeking_venue = db.Column(db.Boolean)
-    seeking_description = db.Column(db.String(200))
-    website = db.Column(db.String(120))
-    # relationships
-    shows = db.relationship('Show', backref='artists', lazy=True)
+    name = db.Column(db.String, nullable=False)
+    city = db.Column(db.String(120), nullable=False)
+    state = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(120), nullable=False)
+    image_link = db.Column(db.String(500), nullable=False)
+    facebook_link = db.Column(db.String(120), nullable=False)
+    genres = db.Column(db.String(120), nullable=False)
+    seeking_venue = db.Column(db.Boolean, nullable=False, default=False)
+    seeking_description = db.Column(db.String(200), nullable=False)
+    website = db.Column(db.String(120), nullable=False)
+    shows = db.relationship('Show', backref='artists', lazy=True, cascade='all, delete-orphan')
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
 class Show(db.Model):
   __tablename__ = 'Show'
 
   id = db.Column(db.Integer, primary_key=True)
-  start_time = db.Column(db.DateTime())
-  # Foreign keys
-  venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'))
-  artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'))
+  start_time = db.Column(db.DateTime(), nullable=False)
+  venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
+  artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
 
   @property
   def display_show(self):
@@ -204,10 +199,14 @@ def show_venue(venue_id):
   # shows the venue page with the given venue_id
   # TODO: replace with real venue data from the venues table, using venue_id
   venue_object = Venue.query.get(venue_id)
-  past_shows =  [show.display_show_venue for show in  Show.query.filter(Show.venue_id == venue_object.id)]
-  upcoming_shows = [show.display_show_venue for show in  Show.query.filter(Show.venue_id == venue_object.id)]
-  past_shows_count = Show.query.filter(Show.venue_id == venue_object.id).count()
-  upcoming_shows_count = Show.query.filter(Show.venue_id == venue_object.id).count()
+  past_shows =  [show.display_show_venue for show in  Show.query.filter(datetime.datetime.now() > Show.start_time,
+                                                                        Show.venue_id == venue_object.id)]
+  upcoming_shows = [show.display_show_venue for show in  Show.query.filter(Show.start_time > datetime.datetime.now(),
+                                                                           Show.venue_id == venue_object.id)]
+  past_shows_count = Show.query.filter(datetime.datetime.now() > Show.start_time,
+                                      Show.venue_id == venue_object.id).count()
+  upcoming_shows_count = Show.query.filter(Show.start_time > datetime.datetime.now(),
+                                          Show.venue_id == venue_object.id).count()
 
   data={
     "id": venue_object.id,
@@ -339,7 +338,7 @@ def edit_venue_submission(venue_id):
 
 #  Delete Venue
 #  ----------------------------------------------------------------
-@app.route('/venues/<venue_id>', methods=['DELETE'])
+@app.route('/venues/<venue_id>/delete', methods=['POST'])
 def delete_venue(venue_id):
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
@@ -355,14 +354,14 @@ def delete_venue(venue_id):
   finally:
     db.session.close()
   if error:
-    flash('An error ocurred. Venue ' + request.form['name'] + ' could not be deleted.')
+    flash('An error ocurred. the Venue could not be deleted.')
   else:
     # on successful db insert, flash success
-    flash('Venue ' + request.form['name'] + ' was successfully deleted!')
+    flash('The Venue was successfully deleted!')
 
   # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
-  return None
+  return render_template('pages/home.html')
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -408,10 +407,14 @@ def show_artist(artist_id):
   # shows the venue page with the given venue_id
   # TODO: replace with real venue data from the venues table, using venue_id
   artist_object = Artist.query.get(artist_id)
-  past_shows =  [show.display_show_artist for show in  Show.query.filter(Show.artist_id == artist_object.id)]
-  upcoming_shows = [show.display_show_artist for show in  Show.query.filter(Show.artist_id == artist_object.id)]
-  past_shows_count = Show.query.filter(Show.artist_id == artist_object.id).count()
-  upcoming_shows_count = Show.query.filter(Show.artist_id == artist_object.id).count()
+  past_shows =  [show.display_show_artist for show in  Show.query.filter(datetime.datetime.now() > Show.start_time,
+                                                                        Show.artist_id == artist_object.id)]
+  upcoming_shows = [show.display_show_artist for show in  Show.query.filter(Show.start_time > datetime.datetime.now() ,
+                                                                        Show.artist_id == artist_object.id)]
+  past_shows_count = Show.query.filter(datetime.datetime.now() > Show.start_time,
+                                      Show.artist_id == artist_object.id).count()
+  upcoming_shows_count = Show.query.filter(Show.start_time > datetime.datetime.now(),
+                                          Show.artist_id == artist_object.id).count()
 
   data={
     "id": artist_object.id,
@@ -543,7 +546,7 @@ def shows():
   # displays list of shows at /shows
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  shows = Show.query.all()
+  shows = Show.query.order_by('id').all()
   data = [show.display_show for show in shows]
   print(datetime.datetime.now())
   return render_template('pages/shows.html', shows=data)
